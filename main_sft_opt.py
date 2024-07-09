@@ -14,22 +14,24 @@ from utils import *
 from federated_learning import *
 from config import get_config, save_config, get_model_config, get_training_args
 
+################
+
 """
 python main_sft_opt.py \
-    --model_name_or_path facebook/opt-125m \
-    --dataset_name vicgalle/alpaca-gpt4 \
-    --dataset_sample 10000 \
+    --model_name_or_path facebook/opt-1.3b \
+    --dataset_name gbharti/finance-alpaca \
+    --dataset_sample 20000 \
     --fed_alg fedavg \
-    --num_clients 10 \
-    --sample_clients 2 \
+    --num_clients 5 \
+    --sample_clients 5 \
     --max_steps 10 \
     --num_rounds 100 \
-    --batch_size 32 \
+    --batch_size 16 \
     --gradient_accumulation_steps 1 \
     --seq_length 512 \
-    --peft_lora_r 32 \
-    --peft_lora_alpha 32 \
-    --use_peft \
+    --peft_lora_r 64 \
+    --peft_lora_alpha 64 \
+    --use_peft True \
     --output_dir ./output \
     --template alpaca
 """
@@ -57,10 +59,6 @@ device_map, quantization_config, torch_dtype = get_model_config(script_args)
 # ===== Get model =====
 model = OPTForCausalLM.from_pretrained(
     script_args.model_name_or_path,
-    # cache_dir='/lcrc/project/NEXTGENOPT/yijiang/cache',
-    # quantization_config=quantization_config,
-    # device_map=device_map,
-    # trust_remote_code=script_args.trust_remote_code,
     torch_dtype='auto',
 )
 
@@ -92,7 +90,7 @@ proxy_dict, opt_proxy_dict = get_proxy_dict(fed_args, global_dict)
 global_auxiliary, auxiliary_model_list, auxiliary_delta_dict = get_auxiliary_dict(fed_args, global_dict)
 
 # ===== Define the tokenizer =====
-tokenizer = AutoTokenizer.from_pretrained(script_args.model_name_or_path, use_fast=False, padding_side="right", cache_dir='/lcrc/project/NEXTGENOPT/yijiang/cache')
+tokenizer = AutoTokenizer.from_pretrained(script_args.model_name_or_path, use_fast=False, padding_side="right")
 if tokenizer.pad_token is None:
     tokenizer.pad_token = tokenizer.unk_token   # following vicuna
 
@@ -109,9 +107,6 @@ for round in tqdm(range(fed_args.num_rounds)):
     clients_this_round = get_clients_this_round(fed_args, round)
 
     print(f">> ==================== Round {round+1} : {clients_this_round} ====================")
-
-    print(torch.cuda.is_available())
-    print(torch.cuda.current_device())
     
     for client in range(fed_args.num_clients):
 
